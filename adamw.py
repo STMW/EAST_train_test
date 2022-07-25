@@ -6,6 +6,7 @@ from six.moves import zip
 from keras.utils.generic_utils import serialize_keras_object
 from keras.utils.generic_utils import deserialize_keras_object
 from keras.legacy import interfaces
+import tensorflow as tf
 
 class AdamW(Optimizer):
     """Adam optimizer.
@@ -23,12 +24,12 @@ class AdamW(Optimizer):
         - [Fixing Weight Decay Regularization in Adam](https://arxiv.org/abs/1711.05101)
     """
 
-    def __init__(self, lr=0.001, beta_1=0.9, beta_2=0.999, weight_decay=1e-4,  # decoupled weight decay (1/4)
+    def __init__(self, lr=0.001, beta_1=0.9, beta_2=0.999, weight_decay=1e-4,
                  epsilon=1e-8, decay=0., **kwargs):
         super(AdamW, self).__init__(**kwargs)
         with K.name_scope(self.__class__.__name__):
             self.iterations = K.variable(0, dtype='int64', name='iterations')
-            self.lr = K.variable(lr, name='lr')
+            self.learning_rate = K.variable(lr, name='learning_rate')
             self.beta_1 = K.variable(beta_1, name='beta_1')
             self.beta_2 = K.variable(beta_2, name='beta_2')
             self.decay = K.variable(decay, name='decay')

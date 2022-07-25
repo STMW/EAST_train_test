@@ -18,12 +18,12 @@ from shapely.geometry import Polygon
 import tensorflow as tf
 
 def get_images(data_path):
+    print(data_path)
     files = []
-    idx = 0
-    for ext in ['jpg', 'png', 'jpeg', 'JPG']:
+    for ext in ['jpg', 'png', 'jpeg']:
         files.extend(glob.glob(
             os.path.join(data_path, '*.{}'.format(ext))))
-        idx += 1
+    
     return files
 
 
@@ -584,7 +584,7 @@ def all(iterable):
 
 def get_text_file(image_file):
     txt_file = image_file.replace(os.path.basename(image_file).split('.')[1], 'txt')
-    txt_file_name = txt_file.split('/')[-1]
+    txt_file_name = txt_file.split("\\")[-1]
     txt_file = txt_file.replace(txt_file_name, 'gt_' + txt_file_name)
     return txt_file
 
@@ -605,6 +605,7 @@ def pad_image(img, input_size, is_train):
 def resize_image(img, text_polys, input_size, shift_h, shift_w):
     new_h, new_w, _ = img.shape
     img = cv2.resize(img, dsize=(input_size, input_size))
+    
     # pad and resize text polygons
     resize_ratio_3_x = input_size/float(new_w)
     resize_ratio_3_y = input_size/float(new_h)
@@ -728,7 +729,7 @@ def generator(FLAGS, input_size=512, background_ratio=3./8, is_train=True, idx=N
                     axs[2, 0].imshow(geo_map[::, ::, 2])
                     axs[2, 0].set_xticks([])
                     axs[2, 0].set_yticks([])
-                    axs[2, 1].imshow(training_mask[::, ::])
+                    axs[2, 1].imshow(overly_small_text_region_training_mask[::, ::])
                     axs[2, 1].set_xticks([])
                     axs[2, 1].set_yticks([])
                     plt.tight_layout()
@@ -833,9 +834,10 @@ def load_data_process(args):
     try:
         img = cv2.imread(image_file)
         h, w, _ = img.shape
+        print(image_file)
         txt_file = get_text_file(image_file)
         if not os.path.exists(txt_file):
-            print('text file {} does not exists'.format(txt_file))
+            print('text file {} does not existssssss'.format(txt_file))
 
         text_polys, text_tags = load_annotation(txt_file)
         text_polys, text_tags = check_and_validate_polys(FLAGS, text_polys, text_tags, (h, w))
@@ -861,7 +863,7 @@ def load_data(FLAGS, is_train=False):
 
     pool = Pool(FLAGS.nb_workers)
     if sys.version_info >= (3, 0):
-        loaded_data = pool.map_async(load_data_process, zip(image_files, itertools.repeat(FLAGS), itertools.repeat(is_train))).get(9999999)
+        loaded_data = pool.map_async(load_data_process, zip(image_files, itertools.repeat(FLAGS), itertools.repeat(is_train))).get(999999)
     else:
         loaded_data = pool.map_async(load_data_process, itertools.izip(image_files, itertools.repeat(FLAGS), itertools.repeat(is_train))).get(9999999)
     pool.close()

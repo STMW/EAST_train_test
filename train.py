@@ -7,13 +7,11 @@ from PIL import Image
 import tensorflow as tf
 import argparse
 from keras.callbacks import LearningRateScheduler, TensorBoard, ModelCheckpoint, Callback
-try:
-    from keras.utils.training_utils import multi_gpu_model
-except ImportError:
-    from keras.utils.multi_gpu_utils import multi_gpu_model
+from keras.utils.multi_gpu_utils import multi_gpu_model   
 from keras.utils import plot_model
 from keras.optimizers import Adam, SGD
 import keras.backend as K
+import keras
 
 from adamw import AdamW
 
@@ -89,6 +87,7 @@ def make_image_summary(tensor):
                          colorspace=channel,
                          encoded_image_string=image_string)
 
+'''
 class CustomTensorBoard(TensorBoard):
     def __init__(self, log_dir, score_map_loss_weight, small_text_weight, data_generator, write_graph=False):
         self.score_map_loss_weight = score_map_loss_weight
@@ -124,6 +123,8 @@ class CustomTensorBoard(TensorBoard):
         tf_summary = tf.Summary(value=img_summaries)
         self.writer.add_summary(tf_summary, epoch + 1)
         super(CustomTensorBoard, self).on_epoch_end(epoch + 1, logs)
+'''
+
 
 class SmallTextWeight(Callback):
     def __init__(self, weight):
@@ -212,7 +213,7 @@ def main(argv=None):
 
     train_data_generator = data_processor.generator(FLAGS)
     train_samples_count = data_processor.count_samples(FLAGS)
-
+    
     val_data = data_processor.load_data(FLAGS)
 
     if len(gpus) <= 1:
@@ -223,7 +224,7 @@ def main(argv=None):
         print('Training with %d GPUs' % len(gpus))
         with tf.device("/cpu:0"):
             east = EAST_model(FLAGS.input_size)
-        if FLAGS.restore_model is not '':
+        if FLAGS.restore_model !='':
             east.model.load_weights(FLAGS.restore_model)
         parallel_model = multi_gpu_model(east.model, gpus=len(gpus))
 
@@ -233,13 +234,13 @@ def main(argv=None):
 
     lr_scheduler = LearningRateScheduler(lr_decay)
     ckpt = CustomModelCheckpoint(model=east.model, path=FLAGS.checkpoint_path + '/model-{epoch:02d}.h5', period=FLAGS.save_checkpoint_epochs, save_weights_only=True)
-    tb = CustomTensorBoard(log_dir=FLAGS.checkpoint_path + '/train', score_map_loss_weight=score_map_loss_weight, small_text_weight=small_text_weight, data_generator=train_data_generator, write_graph=True)
+    #tb = CustomTensorBoard(log_dir=FLAGS.checkpoint_path + '/train', score_map_loss_weight=score_map_loss_weight, small_text_weight=small_text_weight, data_generator=train_data_generator, write_graph=True)
     small_text_weight_callback = SmallTextWeight(small_text_weight)
-    validation_evaluator = ValidationEvaluator(val_data, validation_log_dir=FLAGS.checkpoint_path + '/val')
-    callbacks = [lr_scheduler, ckpt, tb, small_text_weight_callback, validation_evaluator]
-
-    opt = AdamW(FLAGS.init_learning_rate)
-
+    #validation_evaluator = ValidationEvaluator(val_data, validation_log_dir=FLAGS.checkpoint_path + '/val')
+    #callbacks = [lr_scheduler, ckpt, tb, small_text_weight_callback, validation_evaluator]
+    callbacks = [lr_scheduler, ckpt, small_text_weight_callback]
+    
+    opt = AdamW(lr = FLAGS.init_learning_rate)
     parallel_model.compile(loss=[dice_loss(east.overly_small_text_region_training_mask, east.text_region_boundary_training_mask, score_map_loss_weight, small_text_weight),
                                  rbox_loss(east.overly_small_text_region_training_mask, east.text_region_boundary_training_mask, small_text_weight, east.target_score_map)],
                            loss_weights=[1., 1.],
@@ -247,11 +248,14 @@ def main(argv=None):
     east.model.summary()
 
     model_json = east.model.to_json()
+    
     with open(FLAGS.checkpoint_path + '/model.json', 'w') as json_file:
         json_file.write(model_json)
 
-    history = parallel_model.fit_generator(train_data_generator, epochs=FLAGS.max_epochs, steps_per_epoch=train_samples_count/FLAGS.batch_size, workers=FLAGS.nb_workers, use_multiprocessing=True, max_queue_size=10, callbacks=callbacks, verbose=1)
-
+    #print(keras.__version__)
+    history = parallel_model.fit_generator(train_data_generator, epochs=FLAGS.max_epochs, steps_per_epoch=train_samples_count/FLAGS.batch_size, 
+                                           workers=FLAGS.nb_workers, use_multiprocessing=False, max_queue_size=10, callbacks=callbacks, verbose=1)
+    
 if __name__ == '__main__':
     main()
 
